@@ -22,24 +22,29 @@ def data_prepare(dataset_path, start_time,start_from = 0):
     if start_from <= 3:
         depth_erosion(dataset_path/"depth_sequential", dataset_path/"depth_filtered", threshold = 500,iteration = 1,kernel_size = 10)
     print("   depth_filter done", time.time()-start_time)
-    # 4.
-    # 
+    # 4. get 2d segment mask for video recording
+    if start_from <= 4:
+        segment(dataset_path / "rgb_sequential", dataset_path / "2d_seg")
+    print("   2d segment mask done", time.time() - start_time)
     # 5. split_2d_seg_into_individual_objects
-    if start_from <= 4 :
+    if start_from <= 5 :
         id_list = np.load(dataset_path/"id_list.npy")
         n = split_2d_seg_into_folder(id_list, dataset_path/"mask_data")
     print("   split_2d_seg_into_individual_objects done", time.time()-start_time)
     # 6. erode mask
-    if start_from <= 5:
+    if start_from <= 6:
         erode_mask_folder(dataset_path/"mask_data", dataset_path/"mask_data_erode", kernel_size = 10)
     print("   erode_mask_folder done", time.time()-start_time)
     # 7. masked_depth
-    if start_from <= 6:
+    if start_from <= 7:
         masked_depth_folder(dataset_path/"depth_sequential", dataset_path/"mask_data", dataset_path/"depth_masked")
     print("   masked_depth_folder done", time.time()-start_time)
     # 8. masked_rgb
-    if start_from <= 7:
+    if start_from <= 8:
         masked_rgb_folder(dataset_path/"rgb_sequential", dataset_path/"mask_data", dataset_path/"rgb_masked")
+    # 9. Plane Segmentation and generate 2d layout for wall/ground reconstruction
+    if start_from <= 9:
+        plane_segmentation(dataset_path/"room_mesh", dataset_path/"plane_seg")
 
 
 def three_D_segmentation_for_individual_frames(dataset_path,start_from =2):
