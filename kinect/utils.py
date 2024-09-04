@@ -386,9 +386,15 @@ def masked_rgb_single_folder(rgb_dir, mask_dir, out_dir):
             rgb = cv2.imread(rgb_path)
             mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
             mask = mask.astype(np.float32) / 255
-            masked_rgb = rgb * mask[:,:,np.newaxis]
-            masked_rgb = masked_rgb.astype(np.uint8)
-            cv2.imwrite(os.path.join(out_dir, file), masked_rgb)
+            mask_contour = cv2.Canny(mask.astype(np.uint8), 100, 200)
+            mask_contour = mask_contour.astype(np.uint8) 
+            # record mask_contour in the red channel
+            rgb[:,:,:] += mask_contour[:,:,np.newaxis] * 255
+
+            # masked_rgb = rgb * mask[:,:,np.newaxis]
+            # masked_rgb = masked_rgb.astype(np.uint8)
+            rgb[rgb > 255] = 255
+            cv2.imwrite(os.path.join(out_dir, file), rgb)
 
 if __name__ == "__main__":
     # visualization
