@@ -5,7 +5,7 @@ import time
 
 
 
-def data_prepare(dataset_path, start_time,start_from = 0): 
+def data_prepare(dataset_path, start_time,start_from = 4): 
     # 0. intrinsics camera npy -> txt
     if start_from <= 0:
         K_npy_to_txt(dataset_path/"K.npy", dataset_path/"cam_K.txt")
@@ -42,19 +42,19 @@ def data_prepare(dataset_path, start_time,start_from = 0):
         masked_rgb_folder(dataset_path/"rgb_sequential", dataset_path/"mask_data", dataset_path/"rgb_masked")
 
 
-def three_D_segmentation_for_individual_frames(dataset_path,start_from =2):
+def three_D_segmentation_for_individual_frames(dataset_path,start_time,start_from =2):
     # 0. split_3d_seg_into_individual_objects
     if start_from <= 0:
         split_3d_seg_into_folder(dataset_path/"rgb_sequential", dataset_path/"after_remove_gradient", dataset_path/"mask_data",dataset_path, dataset_path/"3d_seg")
-    print("   split_3d_seg_into_folder done")
+    print("   split_3d_seg_into_folder done", time.time()-start_time)
     # 1. apply_cam2world_matrix
     if start_from <= 1:
         apply_cam2world(dataset_path/"3d_seg", dataset_path/"0"/"estimate_c2w.npy", dataset_path/"3d_seg_world")
-    print("   apply_cam2world done")
+    print("   apply_cam2world done", time.time()-start_time)
     # 2. filter pointcloud
     if start_from <= 2:
         remove_outlier_folder(dataset_path/"3d_seg_world", dataset_path/"3d_seg_world_filtered",dataset_path/"seg_object")
-    print("   remove_outlier_folder done")
+    print("   remove_outlier_folder done", time.time()-start_time)
     if start_from <= 3:
         annotate_on_slam_result(dataset_path/"seg_object",dataset_path/"slam_res.ply",dataset_path/"slam_annotation.ply")
     print("   annotate_on_slam_result done")
@@ -62,12 +62,12 @@ def three_D_segmentation_for_individual_frames(dataset_path,start_from =2):
 
 if __name__ ==  "__main__":
     start_time = time.time()
-    phases = [1]
+    phases = [1,2]
     print("Phase 1: Data Preparation", time.time()-start_time)
     sence_name = "annex"
     dataset_path  = Path("datasets")/sence_name
     if 1 in phases:
-        data_prepare(dataset_path,start_time,start_from =7)
+        data_prepare(dataset_path,start_time,start_from =4)
     print("Phase 2: 3D Segmentation for individual frames;", time.time()-start_time)
     if 2 in phases:
-        three_D_segmentation_for_individual_frames(dataset_path,start_from = 3)
+        three_D_segmentation_for_individual_frames(dataset_path,start_time,start_from = 1)

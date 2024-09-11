@@ -310,7 +310,7 @@ def masked_depth_single_folder(depth_dir, mask_dir, out_dir):
 
     after_remove_gradient_dir = str(out_dir).replace("depth_masked", "after_remove_gradient")
     os.makedirs(after_remove_gradient_dir, exist_ok=True)
-    print('after remove gradient dir', after_remove_gradient_dir)
+    # print('after remove gradient dir', after_remove_gradient_dir)
 
     for file in os.listdir(depth_dir):
         depth_path = os.path.join(depth_dir, file)
@@ -383,12 +383,20 @@ def masked_rgb_single_folder(rgb_dir, mask_dir, out_dir):
         rgb_path = os.path.join(rgb_dir, file)
         mask_path = os.path.join(mask_dir, file)
         if os.path.exists(mask_path):
-            rgb = cv2.imread(rgb_path)
-            mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
+            rgb = cv2.imread(rgb_path) 
+            if not os.path.exists(mask_path):
+                continue
+            mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED) # h, w,1
+            rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
             mask = mask.astype(np.float32) / 255
-            masked_rgb = rgb * mask[:,:,np.newaxis]
-            masked_rgb = masked_rgb.astype(np.uint8)
-            cv2.imwrite(os.path.join(out_dir, file), masked_rgb)
+            grad_mask_1 = cv2.Sobel(mask, cv2.CV_32F, 1, 0)
+            grad_mask_2 = cv2.Sobel(mask, cv2.CV_32F, 0, 1)
+            grad_mask = np.sqrt(grad_mask_1 ** 2 + grad_mask_2 ** 2)
+            rgb[grad_mask != 0] = [0, 255, 0]
+            rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+            print('masked rgb', out_dir)
+            print(os.path.join(out_dir, file))
+            cv2.imwrite(os.path.join(out_dir, file), rgb)
 
 if __name__ == "__main__":
     # visualization
