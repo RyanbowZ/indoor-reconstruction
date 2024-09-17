@@ -120,27 +120,47 @@ def K_npy_to_txt(in_dir,out_dir):
     color_k, depth_k = np.load(in_dir)
     np.savetxt(str(out_dir), color_k, fmt="%f")
 
-def split_2d_seg_into_folder(id_list, in_dir):
+def make_subfolders(in_dir, n ,start_from = 1):
     in_dir = Path(in_dir)
-    for id,content in enumerate(id_list):
-        os.makedirs(in_dir/str(id), exist_ok=True)
-    n = len(id_list)
-    img_id = 0
+    for i in range(start_from, n+1):
+        os.makedirs(in_dir/str(i), exist_ok=True)
+    return n
+
+def remove_empty_folder(in_dir):    
+    in_dir = Path(in_dir)
+    for folder in in_dir.iterdir():
+        if folder.is_dir():
+            if not list(folder.glob("*")):
+                # print(f"remove {folder}")
+                shutil.rmtree(folder)
+
+def split_2d_seg_into_folder( in_dir):
+    in_dir = Path(in_dir)
+    # for id,content in enumerate(id_list):
+    #     os.makedirs(in_dir/str(id), exist_ok=True)
+
+
+    n = 20
+    make_subfolders(in_dir, n)
+
+    # note: 0 is the background
     npy_files = in_dir.glob("*.npy")
     sorted_file = sorted(npy_files, key = lambda x: str(x.stem))
     has_writed = np.zeros(n)
+    
+    img_id = 0
     for file in sorted_file:
         img_seg = np.load( file)
-        for i in range(n):
-            mask = img_seg == np.ones_like(img_seg) * id_list[i]
+        for i in range(1, n+1):
+            mask = img_seg == np.ones_like(img_seg) * i
             if mask.any():
                 cv2.imwrite(str(in_dir /str(i) /f"{img_id}.png"), mask.astype(np.uint8) * 255)
                 has_writed[i] = 1
         img_id += 1
-    for i in range(n):
-        if has_writed[i] == 0:
-            print(f"Warning: id {id_list[i]} has no mask.")
-    return n
+    
+    remove_empty_folder(in_dir)
+    print("# of valid folders", np.sum(has_writed))
+    return np.sum(has_writed)
 
 def split_3d_seg_into_folder(color_dir,depth_dir,mask_dir,k_dir, out_dir):
     mask_f = os.listdir(mask_dir)
@@ -155,12 +175,13 @@ def split_3d_seg_into_folder(color_dir,depth_dir,mask_dir,k_dir, out_dir):
     for i in trange(img_num):
         color_path = os.path.join(color_dir, f"{i}.png")
         # depth_path = os.path.join(depth_dir, f"{i}.png")
-        for j in range( n):
-            mask_path = os.path.join(mask_dir, str(j), f"{i}.png")
-            depth_path = os.path.join(depth_dir, str(j), f"{i}.png")
+        for f in mask_f:
+            f_path = Path(f)
+            mask_path = os.path.join(mask_dir, f_path.stem, f"{i}.png")
+            depth_path = os.path.join(depth_dir, f_path.stem, f"{i}.png")
             if not os.path.exists(mask_path):
                 continue
-            to_colorful_xyz(color_path, depth_path, mask_path, k_path, i,out_dir/str(j))
+            to_colorful_xyz(color_path, depth_path, mask_path, k_path, i,out_dir/f_path.stem)
 
 def to_colorful_xyz(color_dir,depth_dir,mask_dir,k_dir,i,out_dir):
     color_dir = Path(color_dir)
@@ -170,7 +191,7 @@ def to_colorful_xyz(color_dir,depth_dir,mask_dir,k_dir,i,out_dir):
     out_dir = Path(out_dir)
     os.makedirs(out_dir, exist_ok=True)
     color = cv2.imread(str(color_dir))
-    print('depth_dir', depth_dir)
+    # print('depth_dir', depth_dir)
     depth = cv2.imread(str(depth_dir), cv2.IMREAD_UNCHANGED) / 1e3
     mask = cv2.imread(str(mask_dir), cv2.IMREAD_UNCHANGED).astype(bool)
     K = np.loadtxt(str(k_dir))
@@ -213,12 +234,12 @@ def depth2xyzmap(depth, K, uvs=None):
 def apply_cam2world(in_dir, c2w_path, out_dir):
     seg_folder = os.listdir(in_dir)
     seg_folder = [f for f in seg_folder if os.path.isdir(os.path.join(in_dir, f))]
-    n = len(seg_folder)
     os.makedirs(out_dir, exist_ok=True)
     c2w = np.load(c2w_path)
-    for i in range(n):
-        in_folder = os.path.join(in_dir, str(i))
-        out_folder = os.path.join(out_dir, str(i))
+    for f in seg_folder:
+        f_path = Path(f)
+        in_folder = os.path.join(in_dir, f_path.stem)
+        out_folder = os.path.join(out_dir, f_path.stem)
         apply_cam2world_single_folder(in_folder, c2w, out_folder)
     
 def apply_cam2world_single_folder(in_dir, c2w, out_dir):
@@ -244,19 +265,17 @@ def remove_outlier(in_dir,out_dir):
     pcd = pcd_raw.voxel_down_sample(voxel_size=0.02)
 
     # print("Statistical oulier removal")
-    cl, ind = pcd.remove_statistical_outlier(nb_neighbors=100, std_ratio=0.5)
+    cl, ind = pcd.remove_statistical_outlier(nb_neighbors=10, std_ratio=0.5)
     inline_cloud = pcd.select_by_index(ind)
 
-    cl, ind = inline_cloud.remove_radius_outlier(nb_points=200, radius=2)
-    outlier_cloud2 = inline_cloud.select_by_index(ind, invert=True)
-    inline_cloud = inline_cloud.select_by_index(ind)
+    # cl, ind = inline_cloud.remove_radius_outlier(nb_points=200, radius=2)
+    # outlier_cloud2 = inline_cloud.select_by_index(ind, invert=True)
+    # inline_cloud = inline_cloud.select_by_index(ind)
 
 
     if inline_cloud.is_empty():
-        print(in_dir)
-        print("No inline points")
-        return None
-    print("Number of inline points: ", len(inline_cloud.points))
+        inline_cloud = pcd
+    # print("Number of inline points: ", len(inline_cloud.points))
     o3d.io.write_point_cloud(str(out_dir), inline_cloud)
     return inline_cloud
 
@@ -268,7 +287,7 @@ def remove_outlier_folder(in_dir,out_path,work_dir):
         all_pts = np.empty((0, 3))
         os.makedirs(out_path/f.name, exist_ok=True)
         ply_path = [p  for p in f.glob("*.ply")]
-        print(ply_path)
+        # print(ply_path)
         for file in ply_path:
 
             inline_cloud = remove_outlier(file, str(file).replace("3d_seg_world", "3d_seg_world_filtered"))
@@ -297,76 +316,97 @@ def erode_mask_single_folder(in_dir, out_dir, kernel_size = 10):
         mask_erode = cv2.erode(mask, kernel, iterations=1) 
         cv2.imwrite(os.path.join(out_dir, file), mask_erode)
 
-def masked_depth_folder(depth_dir, mask_dir, out_dir):
+def masked_depth_folder(depth_dir, mask_dir, grad_dir, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     folders = [f for f in os.listdir(mask_dir) if os.path.isdir(os.path.join(mask_dir, f))]
     for folder in folders:
         mask_folder = os.path.join(mask_dir, folder)
         out_folder = os.path.join(out_dir, folder)
-        masked_depth_single_folder(depth_dir, mask_folder, out_folder)
+        grad_folder = os.path.join(grad_dir, folder)
+        masked_depth_single_folder(depth_dir, mask_folder,grad_folder, out_folder)
 
-def masked_depth_single_folder(depth_dir, mask_dir, out_dir):
+def masked_depth_single_folder(depth_dir, mask_dir, grad_folder, out_dir):
+
     os.makedirs(out_dir, exist_ok=True)
-
-    after_remove_gradient_dir = str(out_dir).replace("depth_masked", "after_remove_gradient")
-    os.makedirs(after_remove_gradient_dir, exist_ok=True)
-    # print('after remove gradient dir', after_remove_gradient_dir)
+    os.makedirs(grad_folder, exist_ok=True)
 
     for file in os.listdir(depth_dir):
         depth_path = os.path.join(depth_dir, file)
         mask_path = os.path.join(mask_dir, file)
         if os.path.exists(mask_path):
             depth = cv2.imread(depth_path, cv2.IMREAD_UNCHANGED)
-            # print('depth max min', depth.max(), depth.min())
-            # print(depth.dtype)
             mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
             mask = mask.astype(np.float32) / 255
-            # print('mask max min', mask.max(), mask.min())
             masked_depth = depth * mask
-            # print('masked depth before astype', masked_depth.max(), masked_depth.min())
             masked_depth = masked_depth.astype(np.uint16)
-            # print('masked depth after astype', masked_depth.max(), masked_depth.min())
-
+            cv2.imwrite(os.path.join(out_dir, file), masked_depth)
             gradx = cv2.Sobel(masked_depth, cv2.CV_16U, 1, 0)
             grady = cv2.Sobel(masked_depth, cv2.CV_16U, 0, 1)
             grad = np.sqrt(gradx ** 2 + grady ** 2)
             grad = grad.astype(np.uint8)
-            cv2.imwrite(os.path.join(str(out_dir).replace("depth_masked", "depth_masked_grad"), file), grad)
-            # print(out_dir)
-            print('masked depth max min', masked_depth.max(), masked_depth.min())
-            cv2.imwrite(os.path.join(out_dir, file), masked_depth)
             grad_thres = np.mean(grad)
-            # grad_thres = np.max(grad) * 0.8
-            print('grad thres', grad_thres, 'mean', np.mean(grad))
             masked_depth[grad > grad_thres] = 0
-            
-            cv2.imwrite(os.path.join(after_remove_gradient_dir, file), masked_depth)
+            cv2.imwrite(os.path.join(grad_folder, file), masked_depth)
 
-def annotate_on_slam_result_single_folder(tmp,object_path,out_path,color):
+def annotate_on_slam_result_single_folder(tmp,object_path,color,out_path,original_color):
 
     object = o3d.io.read_point_cloud(str(object_path))
+    
     object_pts = np.asarray(object.points)
     tree_object = o3d.geometry.KDTreeFlann(object)
     slam_res_pts = tmp.points
+    # a bool array of size slam_res_pts
+    indicator = np.zeros(len(slam_res_pts)).astype(bool)
+    # print("indicator", indicator.shape)
+    empty_pts = np.array([]).reshape(0,3)
 
     for id,pts in enumerate(slam_res_pts):
         [_, idx, _] = tree_object.search_knn_vector_3d(pts, 1)
         distance = np.linalg.norm(object_pts[idx] - pts)
         if np.linalg.norm(distance) < 0.01:
+            indicator[id] = True
+            empty_pts = np.vstack((empty_pts, pts))
             color_array = np.array(color).astype(np.float64).transpose()
             # print('color array', color_array.shape)
             tmp.colors [id] = color_array
             # o3d.utility.Vector3dVector(color_array)
+    # print("indicator", indicator)   
+    bool_path = Path(out_path)/ "indicator.npy"
+    np.save(bool_path, indicator)
+    ply_path = Path(out_path)/ "pts.ply"
+    pointcloud = o3d.geometry.PointCloud()
+    pointcloud.points = o3d.utility.Vector3dVector(empty_pts)
+    # print("original_color", original_color.shape)
+    # print("indicator", original_color[indicator].shape)
+    print("indicator", original_color[indicator])
+    pointcloud.colors = o3d.utility.Vector3dVector(original_color[indicator])
+    # print(tmp.colors[indicator].shape)
+    # pointcloud.colors = o3d.utility.Vector3dVector(tmp.colors[indicator])
+    o3d.io.write_point_cloud(str(ply_path), pointcloud)
+    # print("bool_ok_number", np.sum(indicator))
+    # print("empty_pts", empty_pts.shape)
     return tmp
 
-def annotate_on_slam_result(object_path_dir,slam_res_path,out_path):
+
+
+def annotate_on_slam_result(object_path_dir,slam_res_path,out_ply_path,annotated_folder):
     object_paths = os.listdir(object_path_dir)
-    color_list = [(1,0,0),(0,1,0),(0,0,1),(1,1,0),(1,0,1),(0,1,1),(0.5,0.5,0),(0.5,0,0.5),(0,0.5,0.5)]
-    tmp = o3d.io.read_point_cloud(str(slam_res_path))
+    color_list = [(1,0,0),    (0,1,0),  (0,0,1),
+                  (1,1,0),    (1,0,1),   (0,1,1),
+                  (0.5,0.5,0),(0.5,0,0.5),(0,0.5,0.5),
+                  (0.5,0.5,0.5),(0.5,0,0), (0,0.5,0),
+                  (0,0,0.5),   (0,0.5,0), (0.5,0,0),
+                  (0.5,0,0.5), (0,0.5,0.5),(0.5,0.5,0),
+                  (0.5,0.5,0.5),(0.5,0,0), (0,0.5,0)]
+    tmp = o3d.io.read_point_cloud(str(slam_res_path)) #slam ply
+    original_color = np.asarray(tmp.colors).copy()
+
     for p in tqdm(object_paths):
         object_path = os.path.join(object_path_dir, p)
-        tmp = annotate_on_slam_result_single_folder(tmp,object_path,out_path,color_list[int(p.split(".")[0])])
-    o3d.io.write_point_cloud(str(out_path), tmp)
+        out_file_path = os.path.join(annotated_folder, Path(p).stem)
+        os.makedirs(out_file_path, exist_ok=True)
+        tmp = annotate_on_slam_result_single_folder(tmp,object_path,color_list[int(p.split(".")[0])],out_file_path,original_color)
+    o3d.io.write_point_cloud(str(out_ply_path), tmp)
 
 def masked_rgb_folder(rgb_dir, mask_dir, out_dir):
     os.makedirs(out_dir, exist_ok=True)
@@ -394,8 +434,8 @@ def masked_rgb_single_folder(rgb_dir, mask_dir, out_dir):
             grad_mask = np.sqrt(grad_mask_1 ** 2 + grad_mask_2 ** 2)
             rgb[grad_mask != 0] = [0, 255, 0]
             rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-            print('masked rgb', out_dir)
-            print(os.path.join(out_dir, file))
+            # print('masked rgb', out_dir)
+            # print(os.path.join(out_dir, file))
             cv2.imwrite(os.path.join(out_dir, file), rgb)
 
 if __name__ == "__main__":
