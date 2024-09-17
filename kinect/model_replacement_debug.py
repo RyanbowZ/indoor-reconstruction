@@ -56,6 +56,7 @@ def data_prepare(dataset_path, start_time,start_from = 4):
         masked_rgb_folder(dataset_path/"rgb_sequential", dataset_path/"mask_data", dataset_path/"rgb_masked")
 
 
+
 def three_D_segmentation_for_individual_frames(dataset_path,start_time,start_from =2):
     # 0. split_3d_seg_into_individual_objects
     #    write into 3d_seg subfolder
@@ -92,6 +93,9 @@ def plane_segmentation_and_2d_floor_plan(dataset_path, start_from=0):
     # 3. Extrude 2d floor plan to be 3d reconstructed walls
     if start_from <= 3:
         extrude_3d_walls(dataset_path / "2d_layout", dataset_path / "3d_layout")
+    ### the next phase will read from plane_seg/floor_normal.npy to extract the floor normal ### 
+
+
 
 if __name__ ==  "__main__":
     start_time = time.time()
@@ -107,3 +111,5 @@ if __name__ ==  "__main__":
         three_D_segmentation_for_individual_frames(dataset_path, start_time,start_from = 3)
     if 3 in phases:
         plane_segmentation_and_2d_floor_plan(dataset_path, start_from = 0)
+    if 4 in phases:
+        object_info_refinement(dataset_path)
