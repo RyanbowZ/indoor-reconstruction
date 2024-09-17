@@ -438,6 +438,36 @@ def masked_rgb_single_folder(rgb_dir, mask_dir, out_dir):
             # print(os.path.join(out_dir, file))
             cv2.imwrite(os.path.join(out_dir, file), rgb)
 
+def plane_segmentation(mesh_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+def segment(rgb_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+def align_axis(mesh_dir, plane_seg_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+def generate_2d_layout(align_mesh_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+def extrude_3d_walls(floor_plan_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+def plane_segmentation(mesh_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+def segment(rgb_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+def align_axis(mesh_dir, plane_seg_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+def generate_2d_layout(align_mesh_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+def extrude_3d_walls(floor_plan_dir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
 if __name__ == "__main__":
     # visualization
     render_depth_save_as_orginal_format("datasets/annex/after_remove_gradient/0", "/ghome/l6/yqliang/littleduck/to_render/after_remove_gradient")
