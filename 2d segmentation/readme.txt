@@ -1,0 +1,1 @@
+先Clone Grounded-SAM2 环境配置同该repo教程 然后把上述py放入根目录中
